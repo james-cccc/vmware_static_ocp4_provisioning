@@ -1,0 +1,20 @@
+---
+- name: Generate cluster ignition files
+  hosts: localhost
+  vars_files:
+    - ../vars/config.yml
+  #  - ../vars/vault
+  roles:
+    - openshift-preflight-checks
+    - openshift-ignition
+
+- name: Provision CoreOS nodes
+  hosts: localhost
+  vars_files:
+    - ../vars/config.yml
+ #   - ../vars/vault
+  roles:
+    - openshift-vms
+    - openshift-infra-nodes
+    - openshift-ingress
+    - openshift-vms-compute

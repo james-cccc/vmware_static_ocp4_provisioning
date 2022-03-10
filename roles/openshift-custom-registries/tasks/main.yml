@@ -1,0 +1,40 @@
+---
+- name: Add RHEL8 Support Tools source
+  k8s:
+    definition:
+      apiVersion: operator.openshift.io/v1alpha1
+      kind: ImageContentSourcePolicy
+      metadata:
+        name: image-policy-3
+      spec:
+        repositoryDigestMirrors:
+        - mirrors:
+          - quay.test.com:5000/rhel8/support-tools
+          source: registry.redhat.io/rhel8/support-tools
+
+- name: Add OSE CLI source
+  k8s:
+    definition:
+      apiVersion: operator.openshift.io/v1alpha1
+      kind: ImageContentSourcePolicy
+      metadata:
+        name: image-policy-4
+      spec:
+        repositoryDigestMirrors:
+        - mirrors:
+          - quay.test.com:5000/openshift4/ose-cli
+          source: registry.redhat.io/openshift4/ose-cli
+
+
+- name: Add ose-elasticsearch-operator source
+  k8s:
+    definition:
+      apiVersion: operator.openshift.io/v1alpha1
+      kind: ImageContentSourcePolicy
+      metadata:
+        name: image-policy-5
+      spec:
+        repositoryDigestMirrors:
+        - mirrors:
+          - quay.test.com:5000/openshift4/ose-elasticsearch-operator-bundle
+          source: registry.redhat.io/openshift4/ose-elasticsearch-operator-bundle

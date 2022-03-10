@@ -1,0 +1,22 @@
+kind: LDAPSyncConfig
+apiVersion: v1
+bindDN: "cn=Zlinuxldapbind,ou=Applications,ou=TEST Users,dc=test,dc=co,dc=uk"
+bindPassword:
+  file: "/etc/secrets/bindPassword"
+url: ldap://ad.test.co.uk:389
+#ca: ldap-root-ca
+insecure: true
+augmentedActiveDirectory:
+    groupsQuery:
+        derefAliases: never
+        pageSize: 0
+    groupUIDAttribute: dn
+    groupNameAttributes: [ cn ]
+    usersQuery:
+        baseDN: "ou=TEST Users,dc=test,dc=co,dc=uk"
+        scope: sub
+        derefAliases: never
+        filter: (objectClass=person)
+        pageSize: 0
+    userNameAttributes: [ sAMAccountName ]
+    groupMembershipAttributes: [ "memberOf:1.2.840.113556.1.4.1941:" ]

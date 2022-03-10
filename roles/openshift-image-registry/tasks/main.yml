@@ -1,0 +1,105 @@
+---
+- name: Expose Image Registry
+  k8s:
+    api_version: imageregistry.operator.openshift.io/v1
+    state: present
+    merge_type:
+      - strategic-merge
+      - merge
+    kind: Config
+    name: cluster
+    definition:
+      spec:
+        defaultRoute: true
+        replicas: 1
+        managementState: Managed
+        rolloutStrategy: Recreate
+
+- name: Create image registry PVC
+  community.kubernetes.k8s:
+    state: present
+    kind: PersistentVolumeClaim
+    api_version: v1
+    name: image-registry-pvc
+    namespace: openshift-image-registry
+    merge_type:
+      - strategic-merge
+      - merge
+    definition:
+      spec:
+        accessModes:
+          - ReadWriteMany
+        resources:
+          requests:
+            storage: '{{ registry_nfs_size }}'
+        storageClassName: nfs
+        volumeMode: Filesystem
+        volumeName: image-registry
+
+- name: Set storage for Image Registry
+  k8s:
+    api_version: imageregistry.operator.openshift.io/v1
+    state: present
+    merge_type:
+      - strategic-merge
+      - merge
+    kind: Config
+    name: cluster
+    definition:
+      spec:
+        storage:
+          pvc:
+            claim: image-registry-pvc
+ 
+- name: Customise Image Pruner
+  k8s:
+    api_version: imageregistry.operator.openshift.io/v1
+    state: present
+    merge_type:
+      - strategic-merge
+      - merge
+    kind: ImagePruner
+    name: cluster
+    definition:
+      spec:
+        failedJobsHistoryLimit: 3
+        keepTagRevisions: 5
+        schedule: 15 01 * * 6
+        successfulJobsHistoryLimit: 3
+        suspend: false
+ 
+- name: Change Registry URL
+  k8s:
+    state: present
+    api_version: route.openshift.io/v1
+    merge_type:
+      - strategic-merge
+      - merge
+    name: default-route
+    kind: Route
+    namespace: openshift-image-registry
+    definition:
+      spec:
+        host: "image-registry.apps.{{cluster_name}}.{{ domain }}"
+
+- name: Move Registry to Infra nodes
+  k8s:
+    api_version: imageregistry.operator.openshift.io/v1
+    state: present
+    kind: Config
+    name: cluster
+    namespace: openshift-ingress-operator
+    merge_type:
+      - strategic-merge
+      - merge    
+    definition:
+      spec:
+        nodeSelector:
+          node-role.kubernetes.io/infra: ""
+        tolerations:
+        - effect: NoSchedule
+          key: infra
+          value: reserved
+        - effect: NoExecute
+          key: infra
+          value: reserved

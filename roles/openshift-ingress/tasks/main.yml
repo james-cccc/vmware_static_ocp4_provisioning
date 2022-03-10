@@ -1,0 +1,33 @@
+---
+# tasks file for openshift-ingress
+- name: Ensure ingress controllers affinity to infra nodes and new ingress certificate is defined
+  community.kubernetes.k8s:
+    api_version: operator.openshift.io/v1
+    state: present
+    kind: IngressController
+    name: default
+    namespace: openshift-ingress-operator
+    merge_type:
+      - strategic-merge
+      - merge
+    definition:
+      spec:
+        replicas: 2
+        nodePlacement:
+          nodeSelector:
+            matchLabels:
+              node-role.kubernetes.io/infra: ""
+          tolerations:
+          - effect: NoSchedule
+            key: infra
+            value: reserved
+          - effect: NoExecute
+            key: infra
+            value: reserved
+          defaultCertificate:
+            name: default-ingress-certificate
+        
+
+- name: Pause for 5 minutes to let cluster operators cycle
+  pause:
+    minutes: 5

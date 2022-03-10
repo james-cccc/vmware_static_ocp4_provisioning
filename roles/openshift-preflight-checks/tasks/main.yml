@@ -1,0 +1,28 @@
+---
+# tasks file for openshift-preflight-checks
+
+- name: Ensure oc binary is present
+  command: "oc version --client"
+  register: oc_existence_result
+
+- name: Print oc cli version
+  debug:
+    var: oc_existence_result.stdout
+
+- name: Ensure openshift-install binary is present
+  command: "openshift-install version"
+  register: openshift_install_existence_result
+
+- name: Print openshift-install cli version
+  debug:
+    var: openshift_install_existence_result.stdout
+
+- name: Check existence oc cluster config directory
+  stat:
+    path: "{{ cluster_config_dir }}"
+  register: cluster_config_dir_existence
+
+- name: Fail if previous cluster config directory exists
+  fail:
+    msg: "The directory {{ cluster_config_dir }} already exists. Please remove this directory before starting a new cluster build."
+  when: cluster_config_dir_existence.stat.exists == True

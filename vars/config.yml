@@ -1,0 +1,127 @@
+---
+# openshift-ignition vars:
+
+# Local Resources:
+cluster_config_dir: /home/vagrant/vmware_static_ocp4_provisioing/files/cluster1
+sshkey: "{{ lookup('file', '~/.ssh/id_rsa.pub') }}"
+image_registry_cert: "{{ lookup('file', '/etc/pki/ca-trust/source/anchors/image_registry.crt') | indent (width=2) }}"
+pullsecret: '{"auths":{"cloud.openshift.com":{"auth":"asdhkukawshd89asdasdf8asdf390==","email":"user@domain.com"},"quay.io":{"auth":"b3BlbnNoaWZ0LXJlbGVhc2UtZGV2K2pmb3JjZTExd2k4dDFtdHhtcHB3c2h1dnVwbmY4OWFvOWo6WTY5NlA4MUNKQVpYN0VJV0FKTFNPVFYxOEFBVlU0V1Q4R0I1VUxQSjhVVDhVTVlWNzJOWlYyWkQ5ODlMMEsyRQ==","email":"user@domain.com"},"registry.connect.redhat.com":{"auth":"fwepdfghjkedfcyhbwnesdfiedfrhsdfgjkdogj==","email":"user@domain.com"},"registry.redhat.io":{"auth":"fsldfhhfklsdfkdsflsdfhsldhflsdfhlsdhfsdhl==","email":"user@domain.com"}}}'
+
+# Infrastructure
+image_registry: packetfeathersbastion.test.com:5000/ocp4/openshift4
+#operator_registry_base:
+#supporting_registry_base:
+ignition_webserver: 10.80.158.5
+
+# Cluster Network:
+host_network:
+pod_network: 192.168.0.0/16
+service_network: 172.16.0.0/24
+domain: test.com
+cluster_name: cluster
+
+# Nodes Network COnfiguration:
+cidr: 24
+netmask: 255.255.255.0
+gateway: 10.32.237.1
+dns: 10.250.0.1
+dns2: 10.250.0.2
+ntp1: 10.250.0.123
+ntp2: 10.250.0.124
+ntp3: 10.250.0.125
+
+
+# VmWare:
+vhost: testhost
+vdatacenter: ha-datacenter
+vdatastore: datastore1
+vnetwork: 'VM Network'
+vcenter_user: admin
+vcenter_password: admin
+vcluster: vcluster
+# esxi_host: host1
+
+# VM
+vm_template: 'template-4.6.22-coreos'
+vm_folder: ""
+vm_num_cpus:
+  bootstrap: "4"
+  control: "4"
+  infra: "4"
+  compute: "4"
+vm_disk_size_gb:
+  bootstrap: "120"
+  control: "120"
+  infra: "120"
+  compute: "120"
+vm_memory_mb:
+  bootstrap: "16384"
+  control: "16384"
+  infra: "32768"
+  compute: "16384"
+
+# CLuster Infrastructure
+bootstrap:
+  - hostname: bootstrap
+    ip: 10.80.158.6
+    role: bootstrap
+nodes:
+  - hostname: master0
+    ip: 10.80.158.6
+    function: master
+    role: control
+  - hostname: master1
+    ip: 10.80.158.7
+    function: master
+    role: control
+  - hostname: master2
+    ip: 10.80.158.8
+    function: master
+    role: control
+  - hostname: infra0
+    ip: 10.80.158.9
+    function: worker
+    role: infra
+  - hostname: infra1
+    ip: 10.80.158.10
+    function: worker
+    role: infra
+  - hostname: infra2
+    ip: 10.80.158.11
+    function: worker
+    role: infra
+  - hostname: worker0
+    ip: 10.80.158.12
+    function: worker
+    role: compute
+  - hostname: worker1
+    ip: 10.80.158.13
+    function: worker
+    role: compute
+  - hostname: worker2
+    ip: 10.80.158.14
+    function: worker
+    role: compute
+
+# OperatorHub
+olm_image: 'server.test.com:5000/olm-mirror/redhat-operator-index:v4.6'
+
+#etcd_backups
+etcd_nfs_size: 5Gi
+etcd_nfs_path: /data/ocp-pv/etcd-backups
+etcd_nfs_server: nfsservername.test.com
+
+#etcd_backup_cron_schedule:
+#logrotate_schedule:
+
+# Image image_registry
+registry_nfs_server: nfsservername.test.com
+registry_nfs_path: /data/ocp-pv/image-registry
+registry_nfs_size: 100Gi
+
+# Custom Certificates:
+api_tls_crt: "/home/vagrant/vmware_static_ocp4_provisioing/files/certs/api.cer"
+api_tls_key: "/home/vagrant/vmware_static_ocp4_provisioing/files/certs/api.pem"
+root_ca: "/home/vagrant/vmware_static_ocp4_provisioing/files/certs/cert-bundle.crt"
+ingress_tls_crt: "/home/vagrant/vmware_static_ocp4_provisioing/files/certs/ingress.cer"
+ingress_tls_key: "/home/vagrant/vmware_static_ocp4_provisioing/files/certs/ingress.pem"

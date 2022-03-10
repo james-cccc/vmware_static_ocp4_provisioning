@@ -1,0 +1,63 @@
+---
+# tasks file for openshift-vms-compute
+
+- name: Ensure compute VMs are present
+  community.vmware.vmware_guest:
+    hostname: "{{ vhost }}"
+    username: "{{ vcenter_user }}"
+    password: "{{ vcenter_password }}"
+    datacenter: "{{ vdatacenter }}"
+    # esxi_hostname: "{{ esxi_host }}"
+    cluster: "{{ vcluster}}"
+    validate_certs: false
+    name: "{{ item.hostname }}"
+    folder: "{{ vm_folder }}"
+    template: "{{ vm_template }}"
+    hardware:
+      memory_mb: "{{ vm_memory_mb[item.role] }}"
+      num_cpus: "{{ vm_num_cpus[item.role] }}"
+    #networks:
+    #  - name: "{{ vnetwork }}"
+    #    device_type: vmxnet3
+    disk:
+      - size_gb: "{{ vm_disk_size_gb[item.role] }}"
+        datastore: "{{ vdatastore}}"
+        autoselect_datastore: true
+    state: poweredon
+    vapp_properties:
+      - id: guestinfo.ignition.config.data.encoding
+        value: "base64"
+      - id: guestinfo.ignition.config.data
+        value: "{{ lookup('file', '{{ cluster_config_dir }}/ignitions/{{ item.hostname }}.ign') | b64encode }}"
+    advanced_settings:
+      - key: disk.EnableUUID
+        value: "TRUE"
+      - key: guestinfo.afterburn.initrd.network-kargs
+        value: "ip={{ item.ip }}::{{ gateway }}:{{ netmask }}:{{item.hostname}}.{{ domain }}:ens192:none nameserver={{ dns }}"
+  delegate_to: localhost
+  with_items: "{{ nodes | selectattr('role','match','compute') | list }}"
+  when: item.role == "compute"
+  loop_control:
+    pause: 20
+
+- name: Wait for node-bootstraper csrs to approve
+  shell: "oc get csr -o json --kubeconfig={{ cluster_config_dir }}/auth/kubeconfig | jq -r '.items[] | select(.status == {}) | .metadata.name'" # noqa 301 306
+  register: result_csr
+  until: result_csr['stdout_lines']|count == nodes |selectattr('role', 'equalto', 'compute')|list|length
+  retries: 60
+  delay: 60
+
+- name: Approve the csrs
+  command: "oc adm certificate approve {{ item }} --kubeconfig={{ cluster_config_dir }}/auth/kubeconfig" # noqa 301
+  loop: "{{ result_csr['stdout_lines'] }}"
+
+- name: Wait for system:node csrs to approve
+  shell: "oc get csr -o json --kubeconfig={{ cluster_config_dir }}/auth/kubeconfig | jq -r '.items[] | select(.status == {}) | .metadata.name'"  # noqa 301 306
+  register: result_system
+  until: result_system['stdout_lines']|count == nodes |selectattr('role', 'equalto', 'compute')|list|length
+  retries: 60
+  delay: 60
+
+- name: Approve the csrs
+  command: "oc adm certificate approve {{ item }} --kubeconfig={{ cluster_config_dir }}/auth/kubeconfig" # noqa 301
+  loop: "{{ result_system['stdout_lines'] }}"

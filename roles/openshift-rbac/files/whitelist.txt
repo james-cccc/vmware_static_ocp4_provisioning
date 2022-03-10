@@ -1,0 +1,2 @@
+cn=OCP Cluster Admins GG,OU=Applications,OU=TEST Groups,DC=test,DC=co,DC=uk
+CN=IR Applications GG,OU=Dynamic,OU=TEST Groups,DC=test,DC=co,DC=uk

@@ -1,0 +1,178 @@
+---
+- name: Create temporary directory
+  file:
+    path: ../roles/openshift-rbac/tempfiles
+    state: directory
+  register: dir
+
+- name: Create temporary template
+  template:
+    src: templates/ldap-group-sync-config-template.yaml
+    dest: ../roles/openshift-rbac/tempfiles/ldap-group-sync-config.yaml
+  register: tmpfile
+
+- name: Create role binding for Unix team
+  k8s:
+    definition:
+      apiVersion: rbac.authorization.k8s.io/v1
+      kind: ClusterRoleBinding
+      metadata:
+        name: unixteam-clusteradmin-binding
+      subjects:
+        - kind: Group
+          apiGroup: rbac.authorization.k8s.io
+          name: "{{ unix_team_gg }}"
+      roleRef:
+        apiGroup: rbac.authorization.k8s.io
+        kind: ClusterRole
+        name: cluster-admin
+
+- name: Create LDAP sync service account
+  k8s:
+    kind: ServiceAccount
+    api_version: v1
+    apply: yes
+    definition:
+      metadata:
+        name: ldap-group-sync-sa
+        namespace: openshift-authentication
+        labels:
+          app: cronjob-ldap-group-sync
+
+- name: Create LDAP sync cluster role
+  k8s:
+    apply: yes
+    definition:
+      apiVersion: rbac.authorization.k8s.io/v1
+      kind: ClusterRole
+      metadata:
+        name: ldap-group-sync-role
+        labels:
+          app: cronjob-ldap-group-sync
+      rules:
+        - apiGroups:
+          - ''
+          - user.openshift.io
+          resources:
+            - groups
+          verbs:
+            - get
+            - list
+            - create
+            - update
+
+- name: Create role binding for LDAP sync
+  k8s:
+    definition:
+      apiVersion: rbac.authorization.k8s.io/v1
+      kind: ClusterRoleBinding
+      metadata:
+        name: cronjob-ldap-group-syncer-binding
+        labels:
+          app: cronjob-ldap-group-sync
+      subjects:
+        - kind: ServiceAccount
+          name: ldap-group-sync-sa
+          namespace: openshift-authentication
+      roleRef:
+        apiGroup: rbac.authorization.k8s.io
+        kind: ClusterRole
+        name: ldap-group-sync-role
+
+- name: Create authentication config map for cronjob
+  k8s:
+    api_version: v1
+    kind: ConfigMap
+    name: ldap-group-sync-auth
+    namespace: openshift-authentication
+    apply: yes
+    definition:
+      metadata:
+        labels:
+          app: cronjob-ldap-group-sync
+      data:
+        ldap-group-sync.yaml: |
+          {{ lookup('file', '{{ tmpfile.dest }}') }}
+
+- name: Create whitelist config map for cronjob
+  k8s:
+    api_version: v1
+    kind: ConfigMap
+    name: ldap-group-sync-whitelist
+    namespace: openshift-authentication
+    definition:
+      metadata:
+        labels:
+          app: cronjob-ldap-group-sync
+      data:
+        whitelist.txt: |
+          {{ lookup('file', '{{ whitelist_file }}') }}
+
+- name: Create cronjob definition
+  k8s:
+    api_version: batch/v1beta1
+    name: cronjob-ldap-group-syncer
+    namespace: openshift-authentication
+    apply: yes
+    definition:
+      metadata:
+        labels:
+          app: cronjob-ldap-group-sync
+      spec:
+        schedule: "*/10 * * * *"
+        concurrencyPolicy: Forbid
+        successfulJobsHistoryLimit: 5
+        failedJobsHistoryLimit: 5
+        jobTemplate:
+          metadata:
+            labels:
+              app: cronjob-ldap-group-sync
+          spec:
+            backoffLimit: 0
+            template:
+              metadata:
+                labels:
+                  app: cronjob-ldap-group-sync
+              spec:
+                containers:
+                  - name: cronjob-ldap-group-sync
+                    image: "quay.test.com:5000/openshift4/ose-cli:latest"
+                    #image: "registry.redhat.io/rhel8/support-tools:8.3"
+                    command:
+                      - /bin/sh
+                      - '-c'
+                      - 'oc adm groups sync --whitelist=/etc/whitelist/whitelist.txt --sync-config=/etc/config/ldap-group-sync.yaml --confirm'
+                    volumeMounts:
+                      - mountPath: "/etc/config"
+                        name: "ldap-sync-volume"
+                      - mountPath: "/etc/whitelist"
+                        name: "ldap-sync-volume-whitelist"
+                      - mountPath: "/etc/secrets"
+                        name: "ldap-bind-password"
+                volumes:
+                  - name: "ldap-sync-volume"
+                    configMap:
+                      name: "ldap-group-sync-auth"
+                  - name: "ldap-sync-volume-whitelist"
+                    configMap:
+                      name: "ldap-group-sync-whitelist"
+                  - name: "ldap-bind-password"
+                    secret:
+                      secretName: "v4-0-config-user-idp-0-bind-password"
+                restartPolicy: "Never"
+                terminationGracePeriodSeconds: 30
+                activeDeadlineSeconds: 500
+                dnsPolicy: "ClusterFirst"
+                serviceAccountName: "ldap-group-sync-sa"
+                serviceAccount: "ldap-group-sync-sa"
+
+- name: Force the cronjob to run
+  command: "oc create job first-ldap-sync --from=cronjob/cronjob-ldap-group-syncer -n openshift-authentication --kubeconfig={{ cluster_config_dir }}/auth/kubeconfig"
+
+- name: Clean up files and directories
+  file:
+    path: "{{ item }}"
+    state: absent
+  with_items:
+    - "{{ tmpfile.dest }}"
+    - "{{ dir.path }}"

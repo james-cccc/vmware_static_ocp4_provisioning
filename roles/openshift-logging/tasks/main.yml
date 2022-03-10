@@ -1,0 +1,228 @@
+---
+- name: Set Namespace for cluster logging
+  k8s:
+    state: present
+    api_version: v1
+    kind: Namespace
+    merge_type:
+      - strategic-merge
+      - merge    
+    definition:
+      metadata:
+        name: openshift-logging
+        annotations:
+          openshift.io/node-selector: ""
+        labels:
+          openshift.io/cluster-monitoring: "true"
+ 
+- name: Set Namespace for elasticsearch
+  k8s:
+    state: present
+    api_version: v1
+    kind: Namespace
+    merge_type:
+      - strategic-merge
+      - merge
+    definition:
+      metadata:
+        name: openshift-operators-redhat
+        annotations:
+          openshift.io/node-selector: ""
+        labels:
+          openshift.io/cluster-monitoring: "true"
+ 
+- name: Set Operator Group for elasticsearch
+  k8s:
+    state: present
+    api_version: operators.coreos.com/v1
+    kind: OperatorGroup
+    namespace: openshift-operators-redhat
+    merge_type:
+      - strategic-merge
+      - merge
+    definition:
+      metadata:
+        name: openshift-operators-redhat
+      spec: {}
+ 
+- name: Pause for 1 minute to allow image policies to be distributed
+  pause:
+    minutes: 1
+ 
+- name: Deploy elasticsearch operator
+  k8s:
+    state: present
+    api_version: operators.coreos.com/v1alpha1
+    kind: Subscription
+    name: elasticsearch-operator
+    namespace: openshift-operators-redhat
+    merge_type:
+      - strategic-merge
+      - merge    
+    definition:
+      spec:
+        channel: '{{ logging_channel }}'
+        installPlanApproval: Automatic
+        name: elasticsearch-operator
+        source: custom-operator-catalog
+        sourceNamespace: openshift-marketplace
+ 
+- name: Set Operator Group for cluster logging
+  k8s:
+    state: present
+    api_version: operators.coreos.com/v1
+    kind: OperatorGroup
+    namespace: openshift-logging
+    merge_type:
+      - strategic-merge
+      - merge
+    definition:
+      metadata:
+        name: openshift-logging
+      spec:
+        targetNamespaces:
+        - openshift-logging
+ 
+- name: Pause for 10 seconds for OperatorGroup to be created
+  pause:
+    seconds: 10
+ 
+- name: Deploy cluster logging operator
+  k8s:
+    state: present
+    api_version: operators.coreos.com/v1alpha1
+    kind: Subscription
+    name: cluster-logging
+    namespace: openshift-logging
+    merge_type:
+      - strategic-merge
+      - merge    
+    definition:
+      spec:
+        channel: '{{ logging_channel }}'
+        installPlanApproval: Automatic
+        name: cluster-logging
+        source: custom-operator-catalog
+        sourceNamespace: openshift-marketplace
+ 
+- name: Pause for 90 seconds for both operators to be created
+  pause:
+    seconds: 90
+ 
+- name: Deploy ClusterLogging
+  k8s:
+    state: present
+    api_version: logging.openshift.io/v1
+    kind: ClusterLogging
+    name: "instance"
+    namespace: "openshift-logging"
+    merge_type:
+      - strategic-merge
+      - merge    
+    definition:
+      spec:
+        managementState: "Managed" 
+        logStore:
+          retentionPolicy:
+            application:
+              maxAge: 2d
+            audit:
+              maxAge: 2d
+            infra:
+              maxAge: 2d
+          type: "elasticsearch" 
+          elasticsearch:
+            nodeCount: 2
+            storage:
+              storageClassName: thin
+              size: '{{ es_pv_size }}'
+            redundancyPolicy: "SingleRedundancy"
+            nodeSelector:
+              node-role.kubernetes.io/infra: ""
+            tolerations:
+            - effect: NoSchedule
+              key: infra
+              value: reserved
+            - effect: NoExecute
+              key: infra
+              value: reserved
+        visualization:
+          type: "kibana" 
+          kibana:
+            replicas: 1
+            nodeSelector:
+              node-role.kubernetes.io/infra: ""
+            tolerations:
+            - effect: NoSchedule
+              key: infra
+              value: reserved
+            - effect: NoExecute
+              key: infra
+              value: reserved
+        curation:
+          type: "curator" 
+          curator:
+            schedule: '15 2 2 * *'
+            nodeSelector:
+              node-role.kubernetes.io/infra: ""
+            tolerations:
+            - effect: NoSchedule
+              key: infra
+              value: reserved
+            - effect: NoExecute
+              key: infra
+              value: reserved
+        collection:
+          logs:
+            type: "fluentd" 
+            fluentd: {}
+ 
+# This is en example log forwarder, look at the examples on the documentation and teh below code can form as a basis for your config.
+# Ref: https://docs.openshift.com/container-platform/4.6/logging/cluster-logging-external.html
+
+#- name: Deploy Log Forwarder
+#  k8s:
+#    state: present
+#    api_version: logging.openshift.io/v1
+#    kind: ClusterLogForwarder
+#    name: "instance"
+#    namespace: "openshift-logging"
+#    merge_type:
+#      - strategic-merge
+#      - merge
+#    definition:
+#      spec:
+#        outputs:
+#          - name: rsyslog-ocp
+#            type: syslog
+#            syslog:
+#              facility: local0
+#              rfc: RFC5424
+#              severity: info
+#              payloadKey: message
+#            url: '{{ syslog_url }}'
+#        pipelines:
+#          - name: audit-logs
+#            inputRefs:
+#            - audit
+#            outputRefs:
+#            - rsyslog-ocp
+#            labels:
+#              logs: audit
+#              clusterId: "{{ cluster_name }}"
+#          - name: infra-logs
+#            inputRefs:
+#            - infrastructure
+#            outputRefs:
+#            - rsyslog-ocp
+#            labels:
+#              logs: infra
+#              clusterId: "{{ cluster_name }}"
+#          - name: app-logs
+#            inputRefs:
+#            - application
+#            outputRefs:
+#            - default
+#            labels:
+#              logs: app
+#              clusterId: "{{ cluster_name }}"

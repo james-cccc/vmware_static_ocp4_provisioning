@@ -1,0 +1,8 @@
+server {{ ntp1 }}
+server {{ ntp2 }} 
+server {{ ntp3 }}
+driftfile /var/lib/chrony/drift
+makestep 1.0 3
+rtcsync
+leapsectz right/UTC
+logdir /var/log/chrony

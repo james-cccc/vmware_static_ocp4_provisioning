@@ -1,0 +1,17 @@
+---
+- name: Scale cluster
+  hosts: localhost
+  vars_files:
+    - ../vars/config.yml
+    - ../vars/vault
+ module_defaults:
+   community.kubernetes.k8s_info:
+     validate_certs: false
+     kubeconfig: "{{ cluster_config_dir }}/auth/kubeconfig"
+     host: "https://api.{{ cluster_name }}.{{ domain }}:6443"
+   community.kubernetes.k8s:
+     validate_certs: false
+     kubeconfig: "{{ cluster_config_dir }}/auth/kubeconfig"
+     host: "https://api.{{ cluster_name }}.{{ domain }}:6443"
+  roles:
+    - openshift-vms-compute-add

@@ -1,0 +1,89 @@
+---
+# Need to test this role - not sure if the keys should be base64 encoded by Ansible or will creating the resource do this and thus unneccesary?
+
+- name: Add an API server named certificate
+  block:
+
+    - name: Create a Secret with API crt and key
+      k8s:
+        state: present
+        kind: Secret
+        name: api-certificate
+        namespace: openshift-config
+        definition:
+          data:
+            tls.crt: "{{ lookup('file', '{{ api_tls_crt }}', rstrip=False) | b64encode }}"
+            tls.key: "{{ lookup('file', '{{ api_tls_key }}', rstrip=False) | b64encode }}"
+          type: kubernetes.io/tls
+
+    - name: Patch API Server
+      k8s:
+        state: present
+        merge_type:
+          - strategic-merge
+          - merge
+        kind: APIServer
+        name: cluster
+        definition:
+          spec:
+            servingCerts:
+              namedCertificates:
+              - names:
+                - "api.{{ cluster_name }}.{{ domain }}"
+                servingCertificate:
+                        name: api-certificate
+
+- name: Replacing the default ingress certificate
+  block:
+
+    - name: Create Config Map for CA Bundle
+      k8s:
+        state: present
+        kind: ConfigMap
+        name: custom-ca
+        namespace: openshift-config
+        merge_type:
+          - strategic-merge
+          - merge
+        definition:
+          data:
+            ca-bundle.crt: "{{ lookup('file', '{{ root_ca }}', rstrip=False) }}"
+
+    - name: Patch Global Proxy with new trustedCA bundle
+      k8s:
+        state: present
+        merge_type:
+          - strategic-merge
+          - merge
+        kind: Proxy
+        name: cluster
+        definition:
+          spec:
+            trustedCA:
+              name: custom-ca
+
+    - name: Create a Secret with crt and key
+      k8s:
+        state: present
+        kind: Secret
+        name: ingress-certificate
+        namespace: openshift-ingress
+        definition:
+          data:
+            tls.crt: "{{ lookup('file', '{{ ingress_tls_crt }}', rstrip=False) | b64encode }}"
+            tls.key: "{{ lookup('file', '{{ ingress_tls_key }}', rstrip=False) | b64encode }}"
+          type: kubernetes.io/tls
+
+    - name: Patch Ingress Controller
+      k8s:
+        state: present
+        merge_type:
+          - strategic-merge
+          - merge
+        kind: IngressController
+        name: default
+        namespace: openshift-ingress-operator
+        definition:
+          spec:
+            defaultCertificate:
+              name: ingress-certificate

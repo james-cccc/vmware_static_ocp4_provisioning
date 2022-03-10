@@ -1,0 +1,56 @@
+---
+# tasks file for openshift-infra-nodes
+
+- name: Ensure Infra MachineConfigPool is present
+  community.kubernetes.k8s:
+    state: present
+    kind: MachineConfigPool
+    api_version: machineconfiguration.openshift.io/v1
+    name: infra
+    merge_type:
+      - strategic-merge
+      - merge
+    definition:
+      spec:
+        machineConfigSelector:
+          matchExpressions:
+            - {key: machineconfiguration.openshift.io/role, operator: In, values: [worker,infra]}
+        nodeSelector:
+          matchLabels:
+            node-role.kubernetes.io/infra: ""
+
+- name: Ensure infra nodes are labelled as Infra
+  community.kubernetes.k8s:
+    state: present
+    kind: Node
+    api_version: v1
+    name: "{{ item.hostname + '.' + domain }}"
+    merge_type:
+      - merge
+    definition:
+      metadata:
+        labels:
+          node-role.kubernetes.io/infra: ""
+  loop: "{{ nodes }}"
+  when: item.role == "infra"
+
+#- name: Ensure infra nodes don't have worker labels
+##  community.kubernetes.k8s:
+##    state: present
+##    kind: Node
+##    api_version: v1
+##    name: "{{ item.hostname }}"
+##    merge_type:
+##      - merge
+##    definition:
+##      metadata:
+##        labels:
+##          node-role.kubernetes.io/worker= null
+##  loop: "{{ nodes }}"
+##  when: item.role == "infra"
+
+- name: Remove worker labels using command
+  command: oc label node "{{ item.hostname }}.{{ domain }}" node-role.kubernetes.io/worker- --kubeconfig="{{ cluster_config_dir }}"/auth/kubeconfig
+    loop: "{{ nodes }}"
+      when: item.role == "infra"
+

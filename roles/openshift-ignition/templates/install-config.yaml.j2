@@ -1,0 +1,41 @@
+apiVersion: v1
+baseDomain: {{ domain }}
+compute:
+- hyperthreading: Enabled
+  name: worker
+  replicas: 0
+controlPlane:
+  hyperthreading: Enabled
+  name: master
+  replicas: 3
+metadata:
+  name: {{ cluster_name }}
+platform:
+  vsphere:
+    vcenter: {{ vhost }}
+    username: {{ vcenter_user }}
+    password: {{ vcenter_password }}
+    datacenter: {{ vdatacenter }}
+    defaultDatastore: {{ vdatastore }}
+networking:
+  clusterNetwork:
+  - cidr: {{ pod_network }}
+    hostPrefix: {{ cidr }}
+  networkType: OpenShiftSDN
+  serviceNetwork:
+  - {{ service_network }}
+fips: false
+pullSecret: '{{ pullsecret }}'
+sshKey: '{{ sshkey }}'
+additionalTrustBundle: |
+  {{ image_registry_cert }}
+imageContentSources:
+- mirrors:
+  - {{ image_registry }}
+  source: quay.io/openshift-release-dev/ocp-release
+- mirrors:
+  - {{ image_registry }}
+  source: quay.io/openshift-release-dev/ocp-v4.0-art-dev
+- mirrors:
+  - {{ image_registry }}
+  source: registry.svc.ci.openshift.org/ocp/release

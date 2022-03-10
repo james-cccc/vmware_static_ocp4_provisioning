@@ -1,0 +1,49 @@
+{
+  "ignition": {
+    "config": {
+      "merge": [
+        {
+          "source": "https://api-int.{{ cluster_name }}.{{ domain }}:22623/config/{{ item.function }}"
+        }
+      ]
+    },
+    "security": {
+      "tls": {
+        "certificateAuthorities": [
+          {
+            "source": "data:text/plain;charset=utf-8;base64,{{ base64castring.stdout }}"
+          }
+        ]
+      }
+    },
+    "version": "3.1.0"
+  },
+  "storage": {
+    "files": [
+      {
+        "path": "/etc/hostname",
+        "mode": 420,
+        "overwrite": true,
+        "contents": {
+          "source": "data:text/plain;charset=utf-8;base64,{{ (item.hostname + "." + domain) | b64encode }}"
+        }
+      },
+      {
+        "path": "/etc/sysconfig/network-scripts/ifcfg-ens192",
+        "mode": 420,
+        "overwrite": true,
+        "contents": {
+          "source": "data:text/plain;charset=utf-8;base64,{{ lookup('file', '{{ cluster_config_dir }}/ifcfgs/{{ item.hostname }}.ifcfg') | b64encode }}"
+        }
+      },
+      {
+        "path": "/etc/chrony.conf",
+        "mode": 420,
+        "overwrite": true,
+        "contents": {
+          "source": "data:text/plain;charset=utf-8;base64,{{ lookup('file', '{{ cluster_config_dir }}/ifcfgs/chrony.conf') | b64encode }}"
+        }
+      }
+    ]
+  }
+}
