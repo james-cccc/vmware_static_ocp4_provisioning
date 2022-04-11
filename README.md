@@ -1,6 +1,8 @@
 OpenShift Provisioning and Configuration on VMware
 ===================================================
 
+This repository contains Ansible playbooks and roles to automate a UPI OpenShift 4 install on VMWare
+
 This blog post covers the provisioing process in detail: [Provision Red Hat CoreOS (RHCOS) Machines With Custom V3 Ignition Files](https://www.openshift.com/blog/provision-red-hat-coreos-rhcos-machines-with-custom-v3-ignition-files)
 
 
