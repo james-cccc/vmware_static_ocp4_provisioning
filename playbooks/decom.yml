@@ -1,8 +1,0 @@
----
-- name: Decommission cluster
-  hosts: localhost
-  vars_files:
-    - ../vars/config.yml
-    - ../vars/vault
-  roles:
-    - openshift-delete-vms

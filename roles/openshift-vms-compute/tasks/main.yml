@@ -7,6 +7,7 @@
     username: "{{ vcenter_user }}"
     password: "{{ vcenter_password }}"
     datacenter: "{{ vdatacenter }}"
+    # If deploying to a single esxi host - use instead of datacenter
     # esxi_hostname: "{{ esxi_host }}"
     cluster: "{{ vcluster}}"
     validate_certs: false
@@ -16,6 +17,7 @@
     hardware:
       memory_mb: "{{ vm_memory_mb[item.role] }}"
       num_cpus: "{{ vm_num_cpus[item.role] }}"
+    # If setting specific network cards
     #networks:
     #  - name: "{{ vnetwork }}"
     #    device_type: vmxnet3

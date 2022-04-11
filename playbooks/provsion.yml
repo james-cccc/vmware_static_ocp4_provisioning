@@ -3,7 +3,6 @@
   hosts: localhost
   vars_files:
     - ../vars/config.yml
-  #  - ../vars/vault
   roles:
     - openshift-preflight-checks
     - openshift-ignition
@@ -12,6 +11,7 @@
   hosts: localhost
   vars_files:
     - ../vars/config.yml
+ # Please keep credentials in a vault e.g.
  #   - ../vars/vault
   roles:
     - openshift-vms

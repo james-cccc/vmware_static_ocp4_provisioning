@@ -26,7 +26,6 @@
             value: reserved
           defaultCertificate:
             name: default-ingress-certificate
-        
 
 - name: Pause for 5 minutes to let cluster operators cycle
   pause:
